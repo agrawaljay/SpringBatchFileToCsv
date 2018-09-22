@@ -1,0 +1,57 @@
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:batch="http://www.springframework.org/schema/batch" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/batch	http://www.springframework.org/schema/batch/spring-batch-3.0.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd">
+
+	<!-- JobRepository and JobLauncher are configuration/setup classes -->
+	<bean id="jobRepository" class="org.springframework.batch.core.repository.support.MapJobRepositoryFactoryBean" />
+
+	<bean id="jobLauncher" 	class="org.springframework.batch.core.launch.support.SimpleJobLauncher">
+		<property name="jobRepository" ref="jobRepository" />
+	</bean>
+
+<bean id="ExamResultPeekingCompletionPolicy" class="com.listing.springbatch.job.ExamResultPeekingCompletionPolicyReader" scope="step">
+     <property name="delegate" ref="LineReader" />
+</bean>
+
+	<bean id="LineReader" class="com.listing.springbatch.job.LineReader"  >
+	 <property name="fileUtils"  value="ExamResult.txt" />
+	</bean>
+
+	<bean id="LinesWriter" class="com.listing.springbatch.job.LinesWriter">
+	</bean>
+
+
+<bean id="itemFilterProcessor" class="com.listing.springbatch.job.ExamResultItemFilterProcessor" />
+
+<bean id="itemProcessor" class="com.listing.springbatch.job.ExamResultItemProcessor" />
+
+<bean id="itemCompositeProcessor" class="org.springframework.batch.item.support.CompositeItemProcessor">
+	<property name="delegates">
+		<list>
+			<ref bean="itemFilterProcessor" />
+			<ref bean="itemProcessor" />
+		</list>
+	</property>
+</bean>
+
+
+	<!-- Optional JobExecutionListener to perform business logic before and after the job -->
+	<bean id="jobListener" class="com.listing.springbatch.job.ExamResultJobListener" />
+
+	<!-- Step will need a transaction manager -->
+	<bean id="transactionManager" class="org.springframework.batch.support.transaction.ResourcelessTransactionManager" />
+
+	<!-- Actual Job -->
+	<batch:job id="examResultJob">
+		<batch:step id="step1" >
+			<batch:tasklet transaction-manager="transactionManager">
+				<batch:chunk chunk-completion-policy="ExamResultPeekingCompletionPolicy" reader="ExamResultPeekingCompletionPolicy" writer="LinesWriter"	processor="itemCompositeProcessor"/>
+			</batch:tasklet>
+		</batch:step>
+		<batch:listeners>
+			<batch:listener ref="jobListener" />
+		</batch:listeners>
+	</batch:job>
+
+</beans>			
